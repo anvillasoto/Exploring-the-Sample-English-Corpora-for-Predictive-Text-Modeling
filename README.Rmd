@@ -1,0 +1,1704 @@
+---
+title: "Exploring the Sample English Corpora for Predictive Text Modeling"
+author: "Alexander N. Villasoto"
+date: "1/6/2019"
+output:
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_float: true
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(cache = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(fig.align = "center")
+knitr::opts_chunk$set(fig.show = "hold") 
+knitr::opts_chunk$set(comment=NA)
+knitr::opts_knit$set(root.dir = normalizePath("~/Projects/Courses/Coursera/Data Science Capstone/week_2_aws"))
+options(width = 100)
+```
+
+## I. Introduction
+
+Mobile users worldwide invest significant amounts of time interacting with other people through social media, instant messaging and email among other things that the need for robust input methods cannot be overstated. In response to this need, digital keyboards with smart typing mechanisms became commonplace. As efficient and fast these smart keyboards could be, under the hood it is essential to have an effective and efficient predictive text models that would spit out the "best" next word to aid users in fast typing. Also, being English as the primary language in these devices, it is also essential on the side of the data analyst to understand the corpora that will be representative of general population of mobile phone users. 
+
+The corpora is grouped into three categories - blog, twitter and news that are conveniently separated into files for analysis. Every files have anonymized entries tagged with their date of publication. For this project's purpose, a total of three files will be used in the analysis.
+
+In this activity, the goal is to filter out words or tokens that are not useful for prediction and analyze these useful tokens of their intrinsic structures. Ultimately, the end product of this analysis is a 'cleaned' corpora that is the basis for the subsequent predictive modeling. After the analysis, the author will also list down his plans in realizing the most effective model and how it would be used as a data product similar to the approaches applied to smart keyboard applications.
+
+<strong>Definition of Terms: </strong>
+
+* <strong>Corpus:</strong> a category of dataset that tries to represent English language such as blog, twitter or news corpus. The author uses corpora which means all of these datasets together and corpus when talking to a single dataset.
+* <strong>Token:</strong> a meaningful unit of text, such as a word, that we are interested in using for analysis. The author may interchangeably use token/s or word/s throughout the document.
+* <strong>English dictionary:</strong> a unified character vector that includes words representative of the English language. This will be used to ultimately determine whether a word in the corpora is in fact English.
+
+### A. Approach in Cleaning the English Corpora
+
+R is a powerful language to do text analysis. With the advent of tidy data principles that is done primarily in R, the author made sure that this project falls under that philosophy. Fortunately, there are existing tools in R that can efficiently handle text data specific to the author's purpose. 
+
+As said in the introduction, the goal of the analysis is to come up with a 'clean' version of the corpora. The simplest approach on how to come up with a clean version of each corpus is by tokenizing and filtering out tokens that are not useful in the analysis. Such tokens that are not useful and must be removed are misspelled words, words that are profane, racist, and offensive and non-English terms.
+
+Specifically, the author laid out sequential processes in cleaning each corpus from raw data to its tokenized version (each corpus means that enumerated processes are true for blog, twitter and news datasets and must be done to each of them):
+
+1. Read data per line.
+2. Convert raw data from step 1 to a <i>dplyr</i> version of data frame.
+3. Using the augmented list of <i>Grady Ward's English Words</i> and <i>Mark Kantrowitz's Names List</i>, analyze and bring out a sample that would best represent the English language from the three corpuses.
+4. Initially tokenize the acquired samples from step 3 into 1-gram tokens. 
+5. Convert tokens with <i>right single quotation marks</i> (hex value of 2019) to <i>apostrophe</i> (hex value of 0027).
+6. Remove tokens with numbers and special characters.
+7. Remove one-word profanities compiled from different sources.
+8. Compile tokens containing common contractions and their expanded form.
+9. Using the named vector compiled from step 8, replace word contractions with their expanded form.
+10. Retokenize the resulting data from step 9.
+11. Verify and remove non-English terms using the aforesaid English dictionaries. 
+
+<strong>Notes: </strong>
+
+* Step 3: More information can be found on About the <i>grady_augmented</i> and <i>WordNet<sup>&reg;</sup></i> Datasets (section I-A) and Finding the Right Sample Sizes from Each Corpus (section II-B) below.
+* Step 4: This conversion is necessary to remove word contractions since some of the observations use a different symbol in using apostrophes for word contractions.
+* Step 6: Tokens with special characters (e.g. ., !, @, #, $, %, ^, &, *, (, and ) except apostrophe) are not useful and has to be removed. 
+* Step 7: See Filtering Profanities (section I-C) and the code listing of Cleaning the Corpus section (II-C) to see datasets used as source for offensive words and the code execution respectively.
+* Steps 8 and 9: <i>lexicon</i> package also made it easy for the author to determine word contractions and their expanded form using the <i>key_contractions</i> dataset. Unfortunately, it is not a complete list. The author had to manually augment the list by analyzing the corpora itself. More information can be found on Appendix I.
+* Step 10. Since several tokens are replaced by at least 2 words from step 9, it must be retokenized into one-grams.
+* Step 11. More information can be found in the immediate section below.
+
+### B. About the <i>grady_augmented</i> and <i>WordNet<sup>&reg;</sup></i> Datasets
+
+In order for the author to filter words that are not part of the English language, he needs a comprehensive dictionary that lists words that are part of the it. Unfortunately, there is no such dictionary present that encompasses the vast words contained in the English language as well as the nuances involved in each of these words (e.g. plurarized forms, proper nouns, word contractions, mispellings, new words, colloquial terms, word forms, etc). Fortunately, there are attempts to unify these into consistent vectorized forms that make it easy for the author to at least verify a significant amount of words that are commonly used. These are:
+
+* <strong>Augmented List of Grady Ward's English Words and Mark Kantrowitz's Names List</strong> (hereinafter referred to as Grady Augmented) - A dataset containing a vector of Grady Ward's English words augmented with Mark Kantrowitz's names list, other proper nouns, and contractions.
+
+* <strong>WordNet Lexical Database of English from Princeton University</strong> (hereinafter referred to as WordNet) -  An API that provides an R via Java interface to the WordNet 1 lexical database of English which is commonly used in linguistics and text mining.
+
+The former is a character vector that lists most common words in the English language. It does not cover words that are prominent in today's time (e.g. blog, internet, email) but attempts to cover words and their derivatives. This will be used to effectively sample from large datasets by verifying whether a significant amount of unique words per corpus is present in the said dictionary (see Finding the Right Sample Sizes from Each Corpus section below).
+
+In the other hand, the author utilizes a more comprehensive WordNet API for adjectives, adverbs, nouns and verbs. This will be used to verify if words flagged by grady_augmented vector as not English after all necessary cleaning. Unfortunately like the Grady Augmented, proper nouns like Facebook and Instagram are not recognized by the API. Also contractions ending in <i>apostrophe s</i> whether they are <i>possessive forms of nouns/pronouns</i> or contractions of <i>nouns/pronouns plus the word is</i> are also not recognized by the API that the author felt the need for an acceptably accurate fix about these problems. Also, WordNet is originally made using Java  and R has to interface via its Jawbone API so appropriate environments must be set up prior to the run of the analysis in order to query properly the WordNet dictionary. Lastly, WordNet is significantly slow in checking if a word is English. The author need to save the resulting queries into files to prevent rerunning the API calls again (see Cleaning the Corpus section below as well as the Appendix 1 for more information)
+
+### C. Filtering Profanities
+
+The lexicon package has compiled a handful of character vectors that lists profane tokens that the author used in filtering profanities. These are:
+
+1. Alejandro U. Alvarez's List of Profane Words -  a character vector with 438 elements containing profane words from Alejandro U. Alvarez (more information can be found [here](https://web.archive.org/web/20130704010355/http://urbanoalvarez.es:80/blog/2008/04/04/bad-words-list/)).
+2. Stackoverflow user2592414's List of Profane Words - a character vector of profane words from Stackoverflow user2592414 (more information can be found [here](https://stackoverflow.com/a/17706025/1000343)).
+3. bannedwordlist.com's List of Profane Words - a character vector with 77 elements from bannedwordlist.com.
+4. Titus Wormer's List of Racist Words - a character vector of 470 elements containing racist words from Titus Wormer (you can find the GitHub page [here](https://github.com/words/profanities). 
+5. Zac Anger's List of Profane Words - a dataset containing a character vector of profane words from Zac Anger (a 3078 element list of offensive words can be found [here](https://github.com/zacanger/profane-words)).
+
+## II. Data Analysis
+
+Data analysis involves the code execution of the tasks listed in section I-A. Code listings are collapsed by default so you might want to expand some of these for more information. Also, some code chunks might depend on other functions/objects previously declared/generated in preceding code chunk thus, notes are included as to where you should look. 
+
+Functions that require external APIs such as the WordNet package save outputs as external <i>.csv</i> files. You can access these outputs on the <i>data</i> directory relative to this README file. For reproducibility, outputs here run with seed <i>1234</i> (look also at the session information in Appendix 2). If you find problems or want to know more information, please send me an email [here](mailto:anvillasoto@gmail.com?subject=[Issues]%20Exploring%20the%20English%20Corpora%20for%20Predictive%20Text%20Modeling) or open an issue on this corresponding GitHub [link](https://github.com/ArseniusNott/Exploring-the-Sample-English-Corpora-for-Predictive-Text-Modeling).
+
+### A. Exploring the Corpora
+
+The following are the library dependencies used throughout the analysis. Expand the following code listing to know more.
+
+```{r 00_01_load_dependencies, echo=TRUE}
+# for reproducibility
+set.seed(1234)
+
+# libraries
+library(readr)
+library(tidytext)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(dplyr)
+library(lexicon)
+library(ggplot2)
+library(textclean)
+library(wordnet)
+library(wordcloud)
+```
+
+The code listing below corresponds to the loading of raw files used in the project. The corpora acquired from HC corpora website, a collection of corpora for various languages freely available to download. These corpora have been collected from numerous different webpages, with the aim of getting a varied and comprehensive corpus of current use of the respective language. Their website is already dead but WayBack Machine archived the website [here](http://web.archive.org/web/20160318133851/http://www.corpora.heliohost.org:80/aboutcorpus.html). 
+
+The author acquired the English corpora which is a combination of large files acquired via webcrawler from English blogs, twitter feeds and news sites. The live version of the zip file can be downloaded [here](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip). Note that files under the en_US directory after the zip file has been extracted are the ones used in this project. For convenience, the author already extracted and copied these pertinent raw files to the data directory relative to this project. Take a look at the code listing below for more information.
+
+Now, let us look at the number of observations per corpus, average number of words per observation and preview of one observation per corpus:
+
+```{r 01_exploring_the_corpora, echo=TRUE, eval=FALSE}
+# Set the working directory
+setwd("~/Projects/Courses/Coursera/Data Science Capstone/week_2/")
+
+# load dataset
+blog_us_raw_input_file <- "./data/en_US.blogs.txt"
+twitter_us_raw_input_file <- "./data/en_US.twitter.txt"
+news_us_raw_input_file <- "./data/en_US.news.txt"
+
+# read lines
+blog_us_raw <- 
+  read_lines(file = blog_us_raw_input_file, n_max = -1, progress = FALSE)
+twitter_us_raw <- 
+  read_lines(file = twitter_us_raw_input_file, n_max = -1, progress = FALSE)
+news_us_raw <- 
+  read_lines(file = news_us_raw_input_file, n_max = -1, progress = FALSE)
+
+# convert to dplyr's version of data_frame
+blog_us_raw <- data_frame(obs = blog_us_raw)
+twitter_us_raw <- data_frame(obs = twitter_us_raw)
+news_us_raw <- data_frame(obs = news_us_raw)
+
+# summarize
+rbind(blog_us_raw %>% mutate(`Corpus Name` = "blog"), 
+      twitter_us_raw %>% mutate(`Corpus Name` = "twitter"), 
+      news_us_raw %>% mutate(`Corpus Name` = "news")) %>%
+  group_by(`Corpus Name`) %>%
+  mutate(count = str_count(obs, " ")) %>%
+  summarize(`# of Observations` = n(),
+            `Average Word Count` = (sum(count) / n()),
+            `Preview` = first(obs))
+```
+
+<pre>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data//01_exploring_the_corpora.csv", 
+         col_names = TRUE, 
+         col_types = cols(`CorpusName` = col_character(),
+                          `NumOfObs` = col_double(),
+                          `MeanWordCount` = col_double(),
+                          `Preview` = col_character()))
+```
+</pre>
+
+Blog dataset has about 9 million observations. News and twitter corpuses in the other hand have 10 million and 23 million observations respectively. In terms of the average word count, blog has the highest average with 41 words per observation. News has 33 words per observation on average and Twitter has 12 words per observation due to its 140 character limit at the time data was collected which was on [May 2012](http://web.archive.org/web/20160319220130/http://www.corpora.heliohost.org:80/download.html).
+
+### B. Finding the Right Sample Sizes from Each Corpus
+
+The ultimate question to answer in finding the right sample sizes from each corpus is:
+
+<pre style="text-align:center;">
+<strong>How many unique words do we need to have in our sample that cover at least 50 percent of all word instances in the English language?</strong>
+</pre>
+
+In this question, there are four things to consider:
+
+1. What dictionary do we use to at least represent English language?
+2. How can we collate unique words in the corpora of three categories? 
+3. Using a dictionary representing the English language, how can we count unique and valid English words not only from each corpus but also from all of them as one corpora?
+4. How can we effectively determine sample sizes?
+
+For the first point, initially the author use Grady Wards dataset from the lexicon package (more information in section I-A). We look at the structure of the said dataset below:
+
+```{r 02_finding_the_right_sample_part_1, echo=TRUE, eval=TRUE}
+str(grady_augmented)
+```
+
+As you can see, Grady Augmented has 122806 unique English word elements. This will now be our representation of English language. Half of it is 61403 unique English word elements. This will now be our target 50%, meaning that our sample must at least capture 61403 unique and valid English words in them.
+
+For the second point, we can compile unique words in the corpora by applying tidy approaches to each corpus. Before we do that, we must tokenize our data in one-grams to easily check each word being unique or not. Then we collect unique words and verify how many words in the Grady Augmented are used in each corpus. Note that we are tokenizing the entirety of the raw data. The amount of valid English words per corpus is calculated below:
+
+```{r 02_finding_the_right_sample_part_2, echo=TRUE, eval=FALSE}
+# NOTES
+# for unnest_tokens:
+# • Other columns, such as the line number each word came from, are retained.
+# • Punctuation has been stripped.
+# • By default, unnest_tokens() converts the tokens to lowercase, which makes
+# them easier to compare or combine with other datasets.
+tokenize_ngram <- function(data, n = 1, retokenize = FALSE) {
+  if (retokenize == TRUE) {
+    ngrams <- data %>%
+      unnest_tokens(output = ngrams, 
+                    input = ngrams, 
+                    token = "ngrams",
+                    n = n,
+                    to_lower = TRUE)
+  } else {
+    ngrams <- data %>%
+      unnest_tokens(output = ngrams, 
+                    input = lines, 
+                    token = "ngrams",
+                    n = n,
+                    to_lower = TRUE)
+  }
+  
+  return(ngrams)
+}
+
+# Get unique words in corpora
+# This is useful to determine the baseline for finding the best sample size to 
+# represent the English language.
+get_unique_tokens <- function(input_file_location, size = 1) {
+  raw_lines <- read_lines(file = input_file_location, n_max = -1, 
+                          progress = FALSE)
+  
+  # convert raw data to data_frame that adheres to tidy format
+  raw_df <- data_frame(lines = raw_lines)
+  
+  # get a fraction of raw df (default is 100%)
+  sample_df <- sample_frac(tbl = raw_df, size = size)
+  
+  # tokenize corpus 1-gram
+  one_gram <- tokenize_ngram(data = sample_df, n = 1)
+  
+  unique_tokens <- one_gram %>% unique()
+  
+  return(unique_tokens)
+}
+
+# Create a custom special operator in R that is the opposite of %in%
+'%!in%' <- function(x, y) {
+  !('%in%'(x,y))
+}
+
+# for each corpus, find unique tokens
+blog_unique <- get_unique_tokens(input_file_location = blog_us_raw_input_file)
+twitter_unique <- get_unique_tokens(input_file_location = twitter_us_raw_input_file)
+news_unique <- get_unique_tokens(input_file_location = news_us_raw_input_file)
+# for the whole English corpora (blog, twitter and news tokens altogether)
+english_unique <- data_frame(
+  ngrams = c(blog_unique$ngrams, twitter_unique$ngrams, news_unique$ngrams) %>%
+  unique()
+)
+
+rbind(
+  english_unique %>% 
+    mutate(corpus_name = "all"),
+  blog_unique %>% 
+    mutate(corpus_name = "blog"),
+  twitter_unique %>% 
+    mutate(corpus_name = "twitter"),
+  news_unique %>% 
+    mutate(corpus_name = "news")
+) %>%
+  group_by(corpus_name) %>%
+  summarize(`num_valid_english_words` = sum(grady_augmented %in% ngrams))
+```
+
+<pre>
+<strong> Valid English Words per Corpus Based on the Grady Augmented Dictionary</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/02_finding_the_right_sample_part_2.csv",
+         col_names = TRUE, 
+         col_types = cols(
+           `Corpus Name` = col_character(),
+           `Count Valid English Words` = col_double()
+         ))
+```
+</pre>
+
+We see that there are 67621 valid English words in the blog dataset. There are 60448 valid English words in the news dataset and there are only 55935 valid English words in the twitter dataset. Compiling unique words from all datasets, we see a total of 74950 unique and valid English words which means that our files make a better representation of the English language at least on Grady Augmented dictionary's perspective.
+
+For our last point, to effectively determine sample sizes per corpus, our task is to determine if we can achieve 61403 valid English words if we chose to sample 10%, 20%, 25% or 30% from every corpus and recompile them as one corpora. Note that these are arbitrary numbers selected by the author.
+
+Let us sample each of them intuitively using our formula below: 
+
+<pre style="text-align:center;">
+<strong>
+(valid English words per corpus) / (all valid English words) * percent sample
+</strong>
+</pre>
+
+Now, we look at these percentage allocations below:
+
+```{r 02_finding_the_right_sample_part_3, echo=TRUE, eval=FALSE}
+to_save <- rbind(
+  blog_unique %>% 
+    mutate(corpus_name = "blog"),
+  twitter_unique %>% 
+    mutate(corpus_name = "twitter"),
+  news_unique %>% 
+    mutate(corpus_name = "news")
+) %>%
+  group_by(corpus_name) %>%
+  summarize(`num_valid_english_words` = sum(grady_augmented %in% ngrams),
+            `for 10% sample` = `num_valid_english_words` / 74950 * 0.10,
+            `for 20% sample` = `num_valid_english_words` / 74950 * 0.20,
+            `for 25% sample` = `num_valid_english_words` / 74950 * 0.25,
+            `for 30% sample` = `num_valid_english_words` / 74950 * 0.30) %>%
+  mutate(`num_valid_english_words` = NULL)
+```
+
+<pre>
+<strong>Percentage Allocation of Samples Per Corpora</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/02_finding_the_right_sample_part_3.csv", 
+         col_names = TRUE, 
+         col_types = cols(
+           corpus_name = col_character(),
+           `for 10% sample` = col_double(),
+           `for 20% sample` = col_double(),
+           `for 25% sample` = col_double(),
+           `for 30% sample` = col_double()
+         ))
+```
+</pre>
+
+The author attempts to find the best allocation percentages by iterating through different sampling percentage groups displayed above. As soon as we hit the amount of valid words present in our compiled sample greater than 61403, that sampling percentage group will be used throughout the project. The result of the three iterations are displayed below:
+
+```{r 02_finding_the_right_sample_part_4, echo=TRUE, eval=FALSE}
+# SAMPLING USING DISTRIBUTION OF PERCENTAGE GROUPS ABOVE
+# see the accompanying function on code chunks above.
+sample_each_corpus_and_return_unique_english_word_count <- 
+  function(for_blog, for_twitter, for_news) {
+  # for each corpus
+  blog_unique_sample <- get_unique_tokens(
+    input_file_location = blog_us_raw_input_file, size = for_blog)
+  twitter_unique_sample <- get_unique_tokens(
+    input_file_location = twitter_us_raw_input_file, size = for_twitter)
+  news_unique_sample <- get_unique_tokens(
+    input_file_location = news_us_raw_input_file, size = for_news)
+  english_unique_sample <- c(blog_unique_sample, twitter_unique_sample, 
+                             news_unique_sample) %>% unique()
+  
+  # compile into one data_frame
+  english_unique <- data_frame(
+    ngrams = c(blog_unique_sample$ngrams, twitter_unique_sample$ngrams, 
+               news_unique_sample$ngrams) %>%
+      unique()
+  )
+  
+  num_of_english_tokens <- sum(grady_augmented %in% english_unique$ngrams)
+  
+  return(num_of_english_tokens)
+  }
+
+for_10_percent_sample <-
+  sample_each_corpus_and_return_unique_english_word_count(
+    for_blog = 0.09, for_twitter = 0.07, for_news = 0.08)
+for_20_percent_sample <-
+  sample_each_corpus_and_return_unique_english_word_count(
+    for_blog = 0.18, for_twitter = 0.15, for_news = 0.16)
+for_25_percent_sample <-
+  sample_each_corpus_and_return_unique_english_word_count(
+    for_blog = 0.23, for_twitter = 0.19, for_news = 0.20)
+for_30_percent_sample <-
+  sample_each_corpus_and_return_unique_english_word_count(
+    for_blog = 0.27, for_twitter = 0.22, for_news = 0.24)
+
+data_frame(
+  `10%` = for_10_percent_sample,
+  `20%` = for_20_percent_sample,
+  `25%` = for_25_percent_sample,
+  `30 percent sample` = for_30_percent_sample
+) %>%
+  gather(key = "Sample Size Per Corpus", 
+         value = "Number of Valid English Tokens")
+```
+
+<pre>
+<strong>Pre-selected Sample Sizes and their Corresponding Coverage of Unique and Valid English Words 
+from Grady Augmented</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/02_finding_the_right_sample_part_4.csv", 
+         col_names = TRUE, 
+         col_types = cols(
+           `Sample Size Per Corpus` = col_character(),
+           `Number of Valid English Tokens` = col_double(),
+           `Is Greater Than 61403` = col_character()
+         ))
+```
+</pre>
+
+Now we can see that 30% of each corpus must be sampled to cover 50% of the English language via Grady Augmented standards. Specifically, we need 27% sample from the blog corpus, 22% from twitter and 24 percent from news since it is adjusted due to the intrinsic properties of each raw corpus having different valid English term counts present based on Grady Augmented dictionary.
+
+### C. Cleaning the Corpus
+
+As covered in the introduction, cleaning corpora means removing tokens with special characters, removing one-word profanities (see section I-C for information about the profanity dictionaries used), expanding contractions using custom key contractions, and retokenizing again into one-word tokens.
+
+As you can see, the author always tokenize corpus into individual words. This is intentional because it is a tidy philosophy to restructure corpus of interest into one-token-per-row. With that inherent structure, we can do things like identifying offensive words, verifying unique English words and removing words with numbers in them very easily as well as analyzing things related to text mining like word frequency, visualizations, etc.
+
+Custom key contractions in the other hand are compiled manually. You can find information on how the author did that on Appendix 1.
+
+Take note that the output data of this section are three data frames, one for every corpus following steps 1 to 10 of section I-A. To get a feel of what they look like, the author displayed top 10 tokens from each of them, displaying non-English words flagged by the Grady Augmented dataset. Expand each of the code snippets below to learn more:
+
+```{r 03_cleaning_the_corpus_part_1, echo=TRUE, eval=FALSE}
+# The function tokenize_ngram can be found in the code section of section II-B
+
+separate_ngrams <- function(data, n) {
+  if (n == 1) {
+    print("Only two or more words are accepted.")
+    return()
+  } 
+  
+  colnames = character()
+  for(i in 1:n) {
+    colnames <- c(colnames, paste("word", i, sep = ""))
+  }
+  
+  # separate n-grams into columns
+  ngrams_separated <- ngrams %>%
+    separate(ngrams, colnames, sep = " ")
+}
+
+remove_tokens_with_numbers <- function(tokenized_corpus) {
+  # remove tokens that are pure digits
+  # stop words numbers
+  custom_stop_words_digits <- 
+    tokenized_corpus %>%
+    filter(str_detect(ngrams, "\\w*[0-9]+\\w*\\s*")) %>%
+    pull(var = ngrams) %>%
+    unique()
+  
+  # convert to data_frame
+  custom_stop_words_digits <- data_frame(word = custom_stop_words_digits)
+  
+  # remove pure number tokens
+  pure_number_token_removed <- tokenized_corpus %>%
+    anti_join(custom_stop_words_digits, by = c("ngrams" = "word"))
+  
+  return(pure_number_token_removed)
+}
+
+remove_profane_tokens <- function(tokenized_corpus) {
+  # stop words profanity
+  # unique profane words from the following sources:
+  # (1) Alejandro U. Alvarez's List of Profane Words
+  # (2) Stackoverflow user2592414's List of Profane Words
+  # (3) bannedwordlist.com's List of Profane Words
+  # (4) Google's List of Profane Words
+  custom_stop_words_profanity <- 
+    rbind(
+      data_frame(word = profanity_alvarez)[, 1],
+      data_frame(word = profanity_arr_bad)[, 1],
+      data_frame(word = profanity_banned)[, 1],
+      data_frame(word = profanity_racist)[, 1],
+      data_frame(word = profanity_zac_anger)[, 1]
+    ) %>%
+    unique()
+  
+  profane_words_removed <- 
+    tokenized_corpus %>%
+    anti_join(custom_stop_words_profanity, by = c("ngrams" = "word"))
+  
+  return(profane_words_removed)
+}
+
+remove_tokens_with_special_characters <- function(tokenized_corpus) {
+  # remove tokens with any special characters
+  # EXCEPT APOSTROPHE
+  
+  custom_stop_words_special_characters <- 
+    tokenized_corpus %>%
+    filter(str_detect(ngrams, "[^('\\p{Alphabetic}{1,})[:^punct:]]")) %>%
+    pull(var = ngrams) %>%
+    unique()
+  
+  if (length(custom_stop_words_special_characters) == 0) {
+    print("No special characters found")
+    return()
+  }
+  
+  # convert to data_frame
+  custom_stop_words_special_characters <- 
+    data_frame(word = custom_stop_words_special_characters)
+  
+  # remove pure number tokens
+  special_characters_token_removed <- tokenized_corpus %>%
+    anti_join(custom_stop_words_special_characters, by = c("ngrams" = "word"))
+  
+  return(special_characters_token_removed)
+}
+
+# custom key contractions (second iteration).
+# see appendix 1 for more information
+custom_key_contractions_second_iteration <- function() {
+  # custom_key_contractions
+  custom_key_contractions <- key_contractions
+  custom_key_contractions <- 
+    rbind(custom_key_contractions, 
+          # FIRST ITERATION
+          # contractions from first iteration (blog)
+          c(contraction = "here's", expanded = "here is"),
+          c(contraction = "it'd", expanded = "it would"),
+          c(contraction = "that'd", expanded = "that would"),
+          c(contraction = "there'd", expanded = "there would"),
+          c(contraction = "y'all", expanded = "you and all"),
+          c(contraction = "needn't", expanded = "need not"),
+          c(contraction = "gov't", expanded = "government"),
+          c(contraction = "n't", expanded = "not"),
+          c(contraction = "ya'll", expanded = "you and all"),
+          c(contraction = "those'll", expanded = "those will"),
+          c(contraction = "this'll", expanded = "this will"),
+          c(contraction = "than'll", expanded = "than will"),
+          c(contraction = "c'mon", expanded = "come on"),
+          c(contraction = "qur'an", expanded = "quran"),
+          # additional from twitter
+          c(contraction = "where'd", expanded = "where would"),
+          c(contraction = "con't", expanded = "continued"),
+          c(contraction = "nat'l", expanded = "national"),
+          c(contraction = "int'l", expanded = "international"),
+          c(contraction = "i'l", expanded = "i will"),
+          c(contraction = "li'l", expanded = "little"),
+          c(contraction = "add'l", expanded = "additional"),
+          c(contraction = "ma'am", expanded = "madam"),
+          # SECOND ITERATION
+          # additional from blog
+          c(contraction = "y'know", expanded = "you know"),
+          c(contraction = "not've", expanded = "not have"),
+          c(contraction = "that've", expanded = "that have"),
+          c(contraction = "should've", expanded = "should have"),
+          c(contraction = "may've", expanded = "may have"),
+          c(contraction = "ne'er", expanded = "never"),
+          c(contraction = "e're", expanded = "ever"),
+          c(contraction = "whene'er", expanded = "whenever"),
+          # additional from twitter
+          c(contraction = "cont'd", expanded = "continued"),
+          c(contraction = "how're", expanded = "how are"),
+          c(contraction = "there're", expanded = "there are"),
+          c(contraction = "where're", expanded = "when are"),
+          c(contraction = "why're", expanded = "why are"),
+          c(contraction = "that're", expanded = "that are"),
+          c(contraction = "how've", expanded = "how have"),
+          c(contraction = "there've", expanded = "there have"),
+          c(contraction = "may've", expanded = "may have"),
+          c(contraction = "she've", expanded = "she have"),
+          c(contraction = "all've", expanded = "all have"),
+          # additional from news
+          c(contraction = "hawai'i", expanded = "hawaii"))
+  
+  return(custom_key_contractions)
+}
+
+expand_contracted_tokens <- 
+  function (tokenized_corpus, custom_key_contractions) {
+  # expand contracted tokens using custom key contractions supplied by the 
+  # calling function
+  tokenized_corpus <- 
+    tokenized_corpus %>%
+    mutate(end = str_match(ngrams, "'{1}\\D{1,5}$")) %>%
+    group_by(is_na = is.na(end)) %>%
+    mutate(ngrams = ifelse(is_na, ngrams, 
+                           replace_contraction(ngrams, 
+                                               contraction.key = 
+                                                 custom_key_contractions))) %>%
+    mutate(end = NULL) %>%
+    ungroup() %>%
+    mutate(is_na = NULL)
+  
+  # since some tokens are expanded into at least two words, we need to 
+  # retokenize it into 1-gram
+  tokenized_corpus <- tokenize_ngram(tokenized_corpus, n = 1, retokenize = TRUE)
+  
+  return(tokenized_corpus)
+}
+
+# Unify tokenizing and cleaning corpus into one function
+# 1. Custom key contractions default to key_contractions from the lexicon package
+#    See appendix 1 for more information on the motivation in doing this
+# 2. English language is defaulted to grady_augmented
+#    See section I-B and section II-C for more information
+tokenize_and_clean_corpus <- function(input_file_location, size = 0.25, 
+                                      custom_key_contractions = key_contractions,
+                                      english_language = grady_augmented) {
+  set.seed(1234)
+  raw_lines <- read_lines(file = input_file_location, n_max = -1, 
+                          progress = FALSE)
+  
+  # convert raw data to data_frame that adheres to tidy format
+  raw_df <- data_frame(lines = raw_lines)
+  
+  # get a fraction of raw df (default is 25%)
+  sample_df <- sample_frac(tbl = raw_df, size = size)
+  
+  # tokenize corpus 1-gram
+  one_gram <- tokenize_ngram(data = sample_df, n = 1)
+  
+  # convert apostrophe [’] to 0027
+  one_gram <- 
+    one_gram %>%
+    mutate(ngrams = gsub(pattern = "’", "'", ngrams))
+  
+  # remove tokens with numbers
+  one_gram <- remove_tokens_with_numbers(one_gram)
+  
+  # remove tokens with special characters
+  one_gram <- remove_tokens_with_special_characters(one_gram)
+  
+  # remove tokens that are profane
+  one_gram <- remove_profane_tokens(one_gram)
+  
+  # Expand contracted tokens using the default key_contractions dataset from
+  # lexicon package
+  one_gram_expanded <- 
+    expand_contracted_tokens(one_gram, 
+                             custom_key_contractions = custom_key_contractions)
+  
+  # add column that would initially determine if the word is english or not
+  one_gram_expanded <-
+    one_gram_expanded %>%
+    mutate(is_english = ngrams %in% english_language)
+  
+  return(one_gram_expanded)
+}
+
+# File locations of each corpus can be found on the code section of section II-A
+# tokenize and clean corpora
+# for blog corpus
+blog_tokenized_and_cleaned <- 
+  tokenize_and_clean_corpus(input_file_location = blog_us_raw_input_file, 
+                            custom_key_contractions = custom_key_contractions,
+                            size = 0.27)
+# see the first 10 rows that are flagged NOT-ENGLISH 
+# of blog_tokenized_and_cleaned
+head(blog_tokenized_and_cleaned[
+  blog_tokenized_and_cleaned$is_english == FALSE, ], n = 10)
+```
+
+<pre>
+<strong>Blog Corpus - Top Ten Rows that are Initially Flagged Not-English 
+by the Grady Augmented Dataset</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/03_cleaning_the_corpus_part_1.csv", 
+         col_names = TRUE, 
+         cols(
+           ngrams = col_character(),
+           is_english = col_logical()
+         ))
+```
+</pre>
+
+```{r 03_cleaning_the_corpus_part_2, echo=TRUE, eval=FALSE}
+# for twitter corpus
+twitter_tokenized_and_cleaned <-
+  tokenize_and_clean_corpus(input_file_location = twitter_us_raw_input_file, 
+                            custom_key_contractions = custom_key_contractions,
+                            size = 0.22)
+# see the first 10 rows that are flagged NOT-ENGLISH 
+# of twitter_tokenized_and_cleaned
+head(twitter_tokenized_and_cleaned[
+  twitter_tokenized_and_cleaned$is_english == FALSE, ], n = 10)
+```
+
+<pre>
+<strong>Twitter Corpus - Top Ten Rows that are Initially Flagged Not-English 
+by the Grady Augmented Dataset</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/03_cleaning_the_corpus_part_2.csv", 
+         col_names = TRUE, 
+         cols(
+           ngrams = col_character(),
+           is_english = col_logical()
+         ))
+```
+</pre>
+
+```{r 03_cleaning_the_corpus_part_3, echo=TRUE, eval=FALSE}
+# for news corpus
+news_tokenized_and_cleaned <-
+  tokenize_and_clean_corpus(input_file_location = news_us_raw_input_file,
+                            custom_key_contractions = custom_key_contractions,
+                            size = 0.24)
+# see the first 10 rows that are flagged NOT-ENGLISH 
+# of news_tokenized_and_cleaned
+head(news_tokenized_and_cleaned[
+  news_tokenized_and_cleaned$is_english == FALSE, ], n = 10)
+```
+
+<pre>
+<strong>News Corpus - Top Ten Rows that are Initially Flagged Not-English 
+by the Grady Augmented Dataset</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/03_cleaning_the_corpus_part_3.csv", 
+         col_names = TRUE, 
+         cols(
+           ngrams = col_character(),
+           is_english = col_logical()
+         ))
+```
+</pre>
+
+Looking at the outputs above, most of the flagged not-English words are proper nouns (e.g. delirien, janita), possessive forms of nouns (family's, fiction's, children's, taylor's) and present-day jargons (e.g. ur for you are, acc for account, email for electronic mail). 
+
+Words like perceptual, seattle, and email should be flagged as English. To remedy this, the author used the WordNet API to add a second layer of verification whether each of the tokens are English. Words that are flagged as not-English are then rechecked using the said API. The author chose to save the rechecking process in .csv files since WordNet depends on Java and is external to R environments, thus preventing the need for reinstalling external dependencies on production environments. The following task will depend on the previously-cleaned tokenized corpuses (blog, twitter and news). Expand each of the code listings below for more information:
+
+```{r 03_cleaning_the_corpus_part_4, echo=TRUE, eval=FALSE}
+# Find if the remaining false english terms (via Grady Augmented) is in fact 
+# English according to WordNet
+in_wordnet <- function(w, pos =  c("ADJECTIVE", "ADVERB", "NOUN", "VERB")) {
+  for (x in pos) {
+    filter <- getTermFilter("ExactMatchFilter", w, TRUE)
+    terms <- getIndexTerms(x, 5, filter)
+    if (!is.null(terms)) return(TRUE)
+  }
+  return(FALSE)
+}
+in_wordnet_vectorized <- Vectorize(in_wordnet, vectorize.args = c("w", "pos"))
+
+# for blog
+# See the blog_tokenized_and_cleaned object on the code listings of section
+# II-C
+blog_recheck_non_english_terms_using_wordnet <-
+  blog_tokenized_and_cleaned %>%
+  filter(is_english == FALSE) %>%
+  group_by(ngrams) %>%
+  count(ngrams, sort = TRUE) %>%
+  filter(n > 10) %>%
+  mutate(n = NULL,
+         is_english = in_wordnet_vectorized(ngrams))
+write_csv(blog_recheck_non_english_terms_using_wordnet, 
+          path = "./data/blog_recheck_non_english_terms_using_wordnet.csv")
+# see top 10 rows
+head(blog_recheck_non_english_terms_using_wordnet, n = 10)
+```
+
+<pre>
+<strong>Blog Corpus - Top Ten Rows with is_english Boolean Flags Reevaluated
+by the WordNet API</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/03_cleaning_the_corpus_part_4.csv", 
+         col_names = TRUE, 
+         col_types = cols(
+           ngrams = col_character(),
+           is_english = col_logical()
+         ))
+```
+</pre>
+
+```{r 03_cleaning_the_corpus_part_5, echo=TRUE, eval=FALSE}
+# for twitter
+# See the twitter_tokenized_and_cleaned object on the code listings of
+# section II-C
+twitter_recheck_non_english_terms_using_wordnet <-
+  twitter_tokenized_and_cleaned %>%
+  filter(is_english == FALSE) %>%
+  group_by(ngrams) %>%
+  count(ngrams, sort = TRUE) %>%
+  filter(n > 10) %>%
+  mutate(n = NULL,
+         is_english = in_wordnet_vectorized(ngrams))
+write_csv(twitter_recheck_non_english_terms_using_wordnet, 
+          path = "./data/twitter_recheck_non_english_terms_using_wordnet.csv")
+# see top 10 rows
+head(twitter_recheck_non_english_terms_using_wordnet, n = 10)
+```
+
+<pre>
+<strong>Twitter Corpus - Top Ten Rows with is_english Boolean Flags 
+Reevaluated by the WordNet API</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/03_cleaning_the_corpus_part_5.csv", 
+         col_names = TRUE, 
+         col_types = cols(
+           ngrams = col_character(),
+           is_english = col_logical()
+         ))
+```
+</pre>
+
+```{r 03_cleaning_the_corpus_part_6, echo=TRUE, eval=FALSE}
+# for news
+# See the news_tokenized_and_cleaned object on the code listings of section
+# II-C
+news_recheck_non_english_terms_using_wordnet <-
+  news_tokenized_and_cleaned %>%
+  filter(is_english == FALSE) %>%
+  group_by(ngrams) %>%
+  count(ngrams, sort = TRUE) %>%
+  filter(n > 10) %>%
+  mutate(n = NULL,
+         is_english = in_wordnet_vectorized(ngrams))
+write_csv(news_recheck_non_english_terms_using_wordnet, 
+          path = "./data/news_recheck_non_english_terms_using_wordnet.csv")
+# see top 10 rows
+head(news_recheck_non_english_terms_using_wordnet, n = 10)
+```
+
+<pre>
+<strong>News Corpus - Top Ten Rows with is_english Boolean Flags Reevaluated
+by the WordNet API</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/03_cleaning_the_corpus_part_6.csv", 
+         col_names = TRUE, 
+         col_types = cols(
+           ngrams = col_character(),
+           is_english = col_logical()
+         ))
+```
+</pre>
+
+Previews above tell us that Grady Augmented left out words that are in fact English using the WordNet dictionary. One problem is that words with apostrophe s suffixes (possessive form of nouns like state's or contractions of noun/pronoun plus <i>is</i>) are not considered English by the two dictionaries. To fix this, the author filtered these tokens and rechecked if their corresponding base words are present in the English dictionaries. The result of this rechecking will also be saved in a file like what we have made previously. Expand the code listing below to learn more:
+
+```{r 03_cleaning_the_corpus_part_7, echo=TRUE, eval=FALSE}
+# Verify if token with apostrophe s are english using grady augmented and wordnet
+# If the condition is true for either Grady Augmented or WordNet, 
+# consider the token as english.
+verify_tokens_with_apostrophe_s_if_english <- function(contraction, one_gram) {
+  contraction <- paste(contraction, "$", sep = "")
+  tokens_outside_grady_augmented <-
+    one_gram %>%
+    mutate(end = str_match(ngrams, contraction)) %>%
+    filter(!is.na(end)) %>%
+    count(ngrams, sort = TRUE) %>%
+    mutate(base_word = gsub(pattern = "'s", replacement = "", ngrams)) %>%
+    filter(n > 1) %>%
+    mutate(is_english_grady = base_word %in% grady_augmented,
+           is_english_wordnet = in_wordnet_vectorized(base_word))
+  return(tokens_outside_grady_augmented)
+}
+
+apostrophe_s_blog <- 
+  verify_tokens_with_apostrophe_s_if_english(contraction = "'s",
+                                             one_gram = blog_tokenized_and_cleaned)
+apostrophe_s_twitter <- 
+  verify_tokens_with_apostrophe_s_if_english(contraction = "'s",
+                                             one_gram = twitter_tokenized_and_cleaned)
+apostrophe_s_news <- 
+  verify_tokens_with_apostrophe_s_if_english(contraction = "'s",
+                                             one_gram = news_tokenized_and_cleaned)
+
+# see unique and valid english tokens for all corpus
+valid_english_tokens_with_apostrophe_s <- bind_rows(
+  apostrophe_s_blog %>%
+  filter(is_english_grady == TRUE | is_english_wordnet == TRUE) %>%
+  select(ngrams),
+  apostrophe_s_twitter %>%
+  filter(is_english_grady == TRUE | is_english_wordnet == TRUE) %>%
+  select(ngrams),
+  apostrophe_s_news %>%
+  filter(is_english_grady == TRUE | is_english_wordnet == TRUE) %>%
+  select(ngrams)
+) %>%
+  distinct(ngrams)
+write_csv(valid_english_tokens_with_apostrophe_s, 
+          path = "./data/valid_english_tokens_with_apostrophe_s.csv")
+# see top 10 words with apostrophe s
+head(valid_english_tokens_with_apostrophe_s)
+```
+
+<pre>
+<strong>Valid English Words with ['s] Suffixes Evaluated by Grady Augmented 
+and WordNet Dictionaries</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/03_cleaning_the_corpus_part_7.csv", 
+         col_names = TRUE, 
+         col_types = cols(
+           ngrams = col_character())
+         )
+```
+</pre>
+
+All of the remaining tokens that are flagged by WordNet as English including the words shown above will be augmented to the grady_augmented dataset.
+This will then be passed to <i>tokenize_and_clean_corpus</i> as the author's representation of the English corpora. The resulting custom English dictionary including the contractions compiled from Appendix 1 will be used to tokenize and clean the three corpuses and will be saved .csv files for later use. The resulting data will be tokenized corpuses which will then be retokenized into n-grams (two-grams, three-grams, four-grams) for pertinent analysis. All of these are done via code snippet below. Expand for more information.
+
+```{r 03_cleaning_the_corpus_part_8, echo=TRUE, eval=FALSE}
+# Custom English dictionary using tokens evaluated by both Grady Augmented
+# and WordNet API as well as tokens with apostrophe s suffixes that are also
+# evaluated by the said dictionaries.
+additional_tokens <- bind_rows(
+  blog_recheck_non_english_terms_using_wordnet %>%
+    filter(is_english == TRUE) %>%
+    mutate(is_english = NULL),
+  twitter_recheck_non_english_terms_using_wordnet %>%
+    filter(is_english == TRUE) %>%
+    mutate(is_english = NULL),
+  news_recheck_non_english_terms_using_wordnet %>%
+    filter(is_english == TRUE) %>%
+    mutate(is_english = NULL)
+) %>%
+  bind_rows(
+    valid_english_tokens_with_apostrophe_s
+  ) %>%
+  distinct(ngrams)
+
+# bind additional tokens to grady augmented
+custom_english_dictionary <- 
+  data_frame(
+    ngrams = c( grady_augmented, additional_tokens$ngrams)
+  )
+# save to file
+write_csv(custom_english_dictionary, 
+          path = "./data/custom_english_dictionary.csv")
+
+# Use the custom_english_dictionary and custom_key_contractions to reclean
+# blog, twitter and news corpora (0.27, 0.22, 0.24)
+blog_cleaned <- tokenize_and_clean_corpus(
+  input_file_location = blog_us_raw_input_file, 
+  size = 0.27, 
+  custom_key_contractions = custom_key_contractions, 
+  english_language = custom_english_dictionary)
+# save to file
+write_csv(blog_cleaned, 
+          path = "./data/blog_cleaned.csv")
+
+twitter_cleaned <- tokenize_and_clean_corpus(
+  input_file_location = twitter_us_raw_input_file, 
+  size = 0.22, 
+  custom_key_contractions = custom_key_contractions, 
+  english_language = custom_english_dictionary)
+# save to file
+write_csv(twitter_cleaned, 
+          path = "./data/twitter_cleaned.csv")
+
+news_cleaned <- tokenize_and_clean_corpus(
+  input_file_location = news_us_raw_input_file, 
+  size = 0.24, 
+  custom_key_contractions = custom_key_contractions, 
+  english_language = custom_english_dictionary)
+# save to file
+write_csv(news_cleaned, 
+          path = "./data/news_cleaned.csv")
+```
+
+## III. Results and Insights
+
+Now that we have cleaned dataset for each corpus, we can easily convert these into two-grams, three-grams and four-grams for analysis using the <i>tokenize_ngram</i> function from the second code listing of section II-B. But before we do that, let us look at non-English words per corpus. 
+
+```{r 04_results_and_insights_part_1, echo=TRUE, eval=FALSE}
+# see top 10 non-english words for blog
+blog_cleaned %>%
+  filter(is_english == FALSE) %>%
+  mutate(is_english = NULL) %>%
+  top_n(10, ngrams)
+```
+
+<pre>
+<strong>Blog Cleaned Corpus: Top Ten Non-English Tokens Based on the Established
+Custom English Dictionary</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/04_results_and_insights_part_1.csv", 
+         col_names = TRUE, 
+         col_types = cols(
+           ngrams = col_character())
+         )
+```
+</pre>
+
+```{r 04_results_and_insights_part_2, echo=TRUE, eval=FALSE}
+# see top 10 non-english words for twitter
+twitter_cleaned %>%
+  filter(is_english == FALSE) %>%
+  mutate(is_english = NULL) %>%
+  top_n(10)
+```
+
+<pre>
+<strong>Twitter Cleaned Corpus: Top Ten Non-English Tokens Based on the Established
+Custom English Dictionary</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/04_results_and_insights_part_2.csv", 
+         col_names = TRUE, 
+         col_types = cols(
+           ngrams = col_character())
+         )
+```
+</pre>
+
+```{r 04_results_and_insights_part_3, echo=TRUE, eval=FALSE}
+# see top 10 non-english words for news
+news_cleaned %>%
+  filter(is_english == FALSE) %>%
+  mutate(is_english = NULL) %>%
+  top_n(10)
+```
+
+<pre>
+<strong>News Cleaned Corpus: Top Ten Non-English Tokens Based on the Established
+Custom English Dictionary</strong>
+```{r echo=FALSE, cache=FALSE}
+library(readr)
+read_csv("./data/04_results_and_insights_part_3.csv", 
+         col_names = TRUE, 
+         col_types = cols(
+           ngrams = col_character())
+         )
+```
+</pre>
+
+Looking at the tokens presented above, we can see that the custom English dictionary has done a decent job at recognizing non-English terms. Note that tokens that look like normal words like <i>ﬁrst</i>, <i>ﬁnal</i> and <i>ﬁends</i> and seem to be misflagged non-English terms but in fact used foreign character Latin small ligature fi (with decimal code point of 64257). 
+Now we look at the distributions of English and not English tokens per corpus.
+
+```{r 04_results_and_insights_part_4, echo=TRUE, eval=FALSE}
+# Count the number of non-English words per corpus
+bind_rows(
+  blog_cleaned %>%
+    mutate(`Corpus Name` = "blog"),
+  twitter_cleaned %>%
+    mutate(`Corpus Name` = "twitter"),
+  news_cleaned %>%
+    mutate(`Corpus Name` = "news")
+) %>%
+  mutate(`Category` = ifelse(is_english, "English", "Not English"),
+         is_english = NULL) %>%
+  group_by(`Corpus Name`, `Category`) %>%
+  summarize(`Count` = n()) %>%
+  ggplot(aes(y = Count, x = `Corpus Name`, fill = Category)) + 
+  geom_bar(stat="identity") +
+  labs(y = NULL, x = "Distribution of English and Not English Tokens Per Corpus")
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/distribution_of_english_and_not_english_tokens_per_corpus.png", dpi = 1)
+```
+
+Now we see how our sampling affects the distribution of English and not English tokens in the cleaned corpora. Looking closely at the blue strips, we can see that the twitter corpus has the highest amount of not English tokens even though it has the least sample size in the beginning of the analysis, proving that our sampling mechanism worked significantly.
+
+Finally, let us tokenize our cleaned corpora into one-grams, two-grams, three-grams and four-grams and visualize top 10 most frequent tokens per corpus. 
+
+```{r 04_results_and_insights_part_5, echo=TRUE, eval=FALSE}
+# Visualize top n words per corpus
+# For All, Blog, Twitter and News Categories
+visualize_top_n_words_per_corpus <-
+  function(tokenized_corpus, words_per_token, top_n = 10) {
+    library(grid)
+    library(gridExtra)
+    
+    ngrams_name <- ifelse(words_per_token == 1, "One-Grams", 
+                     ifelse(words_per_token == 2, "Two-Grams", 
+                     ifelse(words_per_token == 3, "Three-Grams", 
+                     ifelse(words_per_token == 4, "Four-Grams", NULL))))
+    
+    i <- 2
+    colors <- c("#F44336", "#2196F3", "#8BC34A", "#9C27B0")
+    corpus_names <- c("All", "Blog", "Twitter", "News")
+    plots <- list()
+    plots[[1]] <- textGrob(paste("Most Frequent ", ngrams_name, " Per Corpus", 
+                                 sep = ""))
+    for(corpus_name in  corpus_names) {
+      plots[[i]] <-
+        tokenized_corpus %>%
+        filter(CorpusName == corpus_name) %>%
+        group_by(CorpusName) %>%
+        count(ngrams, sort = TRUE) %>%
+        top_n(top_n, n) %>%
+        ggplot(aes(reorder(ngrams, n), n)) +
+        geom_col(show.legend = FALSE, fill = colors[i - 1]) +
+        labs(x = NULL, y = corpus_name) +
+        coord_flip()
+        
+      i <- i + 1
+    }
+    
+    grid.arrange(plots[[1]], plots[[2]], plots[[3]], plots[[4]], plots[[5]],
+                 nrow = 3, layout_matrix = rbind(c(1, 1), c(2, 3), c(4, 5)),
+                 heights = c(1, 5, 5), widths = c(10, 10))
+  }
+
+# convert cleaned corpus to n-grams
+# blog
+blog_one_gram <- blog_cleaned %>%
+  filter(is_english == TRUE) %>%
+  mutate(is_english = NULL)
+blog_two_gram <- tokenize_ngram(data = blog_one_gram, n = 2, retokenize = TRUE)
+blog_three_gram <- tokenize_ngram(data = blog_one_gram, n = 3, retokenize = TRUE)
+blog_four_gram <- tokenize_ngram(data = blog_one_gram, n = 4, retokenize = TRUE)
+
+# twitter
+twitter_one_gram <- twitter_cleaned %>%
+  filter(is_english == TRUE) %>%
+  mutate(is_english = NULL)
+twitter_two_gram <- tokenize_ngram(data = twitter_one_gram, n = 2, retokenize = TRUE)
+twitter_three_gram <- tokenize_ngram(data = twitter_one_gram, n = 3, retokenize = TRUE)
+twitter_four_gram <- tokenize_ngram(data = twitter_one_gram, n = 4, retokenize = TRUE)
+
+# news
+news_one_gram <- news_cleaned %>%
+  filter(is_english == TRUE) %>%
+  mutate(is_english = NULL)
+news_two_gram <- tokenize_ngram(data = news_one_gram, n = 2, retokenize = TRUE)
+news_three_gram <- tokenize_ngram(data = news_one_gram, n = 3, retokenize = TRUE)
+news_four_gram <- tokenize_ngram(data = news_one_gram, n = 4, retokenize = TRUE)
+
+# Generate a data_frame that compiles all one-gram tokens into one including
+# the whole corpora
+one_gram_tokens <-
+  bind_rows(
+    blog_one_gram %>%
+      mutate(CorpusName = "Blog"),
+    twitter_one_gram %>%
+      mutate(CorpusName = "Twitter"),
+    news_one_gram %>%
+       mutate(CorpusName = "News"),
+    bind_rows(
+      blog_one_gram,
+      twitter_one_gram,
+      news_one_gram
+    ) %>%
+      mutate(CorpusName = "All")
+  )
+
+visualize_top_n_words_per_corpus(tokenized_corpus = one_gram_tokens, 
+                                 words_per_token = 1, top_n = 10)
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/most_frequent_one_grams_per_corpus.png", dpi = 1)
+```
+
+```{r 04_results_and_insights_part_6, echo=TRUE, eval=FALSE}
+# for two-grams
+two_gram_tokens <-
+  bind_rows(
+    blog_two_gram %>%
+      mutate(CorpusName = "Blog"),
+    twitter_two_gram %>%
+      mutate(CorpusName = "Twitter"),
+    news_two_gram %>%
+      mutate(CorpusName = "News"),
+    bind_rows(
+      blog_two_gram,
+      twitter_two_gram,
+      news_two_gram
+    ) %>%
+      mutate(CorpusName = "All")
+  )
+
+visualize_top_n_words_per_corpus(tokenized_corpus = two_gram_tokens, 
+                                 words_per_token = 2, top_n = 10)
+```
+
+Not surprisingly, most common one-grams are common stop words like 'and', 'to', and 'the'. The author decided to leave this as is since these tokens are essential to predict next word and expectedly form a complete thought and structure in prediction. Moving on to two-grams, we have the following:
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/most_frequent_two_grams_per_corpus.png", dpi = 1)
+```
+
+```{r 04_results_and_insights_part_7, echo=TRUE, eval=FALSE}
+# for three-grams
+three_gram_tokens <-
+  bind_rows(
+    blog_three_gram %>%
+      mutate(CorpusName = "Blog"),
+    twitter_three_gram %>%
+      mutate(CorpusName = "Twitter"),
+    news_three_gram %>%
+      mutate(CorpusName = "News"),
+    bind_rows(
+      blog_three_gram,
+      twitter_three_gram,
+      news_three_gram
+    ) %>%
+      mutate(CorpusName = "All")
+  )
+
+visualize_top_n_words_per_corpus(tokenized_corpus = three_gram_tokens, 
+                                 words_per_token = 3, top_n = 10)
+```
+
+What is interesting in bigrams is how key_contractions manage to expand can't into can not instead of cannot. The author intentionally left this unchanged to make predictions as formal as possible. It might not be efficient in terms of smart prediction especially that these tokens are one of the most common but that might be one of the limitations. Now let us look at the top 10 most common three-grams:
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/most_frequent_three_grams_per_corpus.png", dpi = 1)
+```
+
+Now we see apparent combinations that are useful for prediction. Looking at the <i>all</i> category in the plot, 'i do not' is the most common three-gram followed by 'it is a', 'one of the', 'a lot of'. 
+
+Generally for the blog corpus, we see thoughts that are on the side of negative with three-grams like 'i do not', 'i am not', 'it is not', 'i can not'. Twitter in the other hand have three-grams that express gratitude and anticipation like 'thanks for the', 'can not wait', 'thank you for' and 'looking forward to'. More formal three-grams in the other hand are present in the news corpus like 'as well as', 'according to the', and 'part of the'. Now we look at the most frequent four-grams per corpus:
+
+```{r 04_results_and_insights_part_8, echo=TRUE, eval=FALSE}
+# for four-grams
+four_gram_tokens <-
+  bind_rows(
+    blog_four_gram %>%
+      mutate(CorpusName = "Blog"),
+    twitter_four_gram %>%
+      mutate(CorpusName = "Twitter"),
+    news_four_gram %>%
+      mutate(CorpusName = "News"),
+    bind_rows(
+      blog_four_gram,
+      twitter_four_gram,
+      news_four_gram
+    ) %>%
+      mutate(CorpusName = "All")
+  )
+
+visualize_top_n_words_per_corpus(tokenized_corpus = four_gram_tokens, 
+                                 words_per_token = 4, top_n = 10)
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/most_frequent_four_grams_per_corpus.png", dpi = 1)
+```
+
+The most frequent four-grams for the whole corpora are 'i am going to', 'i do not know', 'can not wait to', and 'the end of the'. Again, like what we observe in the previous section, we see four-grams with negative sentiments like 'i do not know', 'do not want to', 'i am not sure' and 'i do not have' for the blog corpus. Twitter in the other hand have interesting four-grams like 'thanks for the follow' where follow in this case is a jargon most commonly used in the twitter platform. News corpora apart from the two other corpus have four-grams that are used frequently in narrative cases like 'the end of the', the rest of the', 'at the end of', 'is going to be', and 'is one of the'.
+
+## IV. Limitations and Future Work
+
+### A. Limitations
+
+Exploring corpora with data coming from sparse sources for projects like smart predictions is not without limitations. Aside from a specific limitation for key_contractions previously mentioned, here are the few things that this analysis are lacking and must be addressed:
+
+* The corpora is made public since May 2012. It may not be the most recent representation of the English language and will affect the robustness of the prediction.
+* Grady Wards and WordNet being a collective representations of the English language (see section II-B) may be incomplete and lacking. Using other unified English dictionaries may be helpful in ensuring that we cover the most of the present-day English language and get better representation.
+* The author removed present day proper nouns (e.g. strauss, facebook, instagram) and present-day jargons (e.g. rt for retweet, dm for direct message, pls for please) to make the prediction algorithm more formal and unbiased. This may affect future data products based on the output of this analysis where data does not adapt to the jargons that are prominent in today's society.
+
+### B. Future Work
+
+<strong>The Prediction Algorithm</strong>
+
+Our prediction algorithm will be using n-gram model with frequency lookup similar to the plots shown above. The author is thinking of utilizing a four-gram model to predict the next word. Three candidates will be filtered from top results, each with decreasing probability of being the next word. If no matching four-grams can be found, then the algorithm would revert to three-grams, two-grams or one-grams. This back-off mechanism will be optimized via indexing to make it easy for the model to spit out three candidates everytime an AJAX query triggers from the client side.
+
+<strong>The Client Application</strong>
+
+The next task for the author is to utilize the cleaned corpora to make a model that would simulate smart prediction via an application done in Shiny, an R framework for creating data products like this one. The application will be called smart predict and will contain a single text box with three buttons on top and a labels below that changes value in real time everytime a user inputs a word.
+
+Each time a user updates input in the text box, the application calls the server where a prediction algorithm will spit out three words, each with accompanying probabilities as to how likely they are to be the next word based on what the user recently types. The most probable word will then be supplied as value of the middle button, the second and third words will then be supplied to left and right buttons respectively. Event handlers are tied to each button where users can click on one of those buttons to aid in fast typing.
+
+## V: Appendices
+
+### Appendix 1. Investigate other Contractions that are Not Part of the <i>key_contractions</i> Dataset
+
+Lexicon package has <i>key_contractions</i> dataset which is a data frame with 70 rows and 2 variables, common contractions and their expanded form. 
+
+```{r appendix_1_investigating_other_contractions_part_1, echo=TRUE, eval=TRUE}
+head(lexicon::key_contractions)
+```
+
+The function <i>tokenize_and_clean_corpus</i> in section II-C unifies tokenizing and cleaning data using pertinent functions uses the said dataset to expand contractions via regular expressions and the power of tidy approach in text mining. In spite of expanding the contracted tokens and subsequent retokenizing, still there are remaining contractions. In order to solve this, we have to manually add our discovered contractions to make a custom key_contractions dataset. We will use the initial result from <i>tokenize_and_clean_corpus</i> for blog, twitter and news raw datasets. Expand the full code below to learn more.
+
+```{r appendix_1_investigating_other_contractions_part_2, echo=TRUE, eval=FALSE}
+# Tokenize_and_clean_corpus function can be found on the code section of in section II-C
+# See Section II-B for the more information on sample sizes
+# for blog corpus
+blog_tokenized_and_cleaned <- 
+  tokenize_and_clean_corpus(input_file_location = blog_us_raw_input_file, 
+                            size = 0.27)
+# for twitter corpus
+twitter_tokenized_and_cleaned <-
+  tokenize_and_clean_corpus(input_file_location = twitter_us_raw_input_file, 
+                            size = 0.22)
+# for news corpus
+news_tokenized_and_cleaned <-
+  tokenize_and_clean_corpus(input_file_location = news_us_raw_input_file,
+                            size = 0.24)
+
+
+get_top_n_most_common_word_contractions <- 
+  function(tokenized_corpus, n = 10, corpus_name) {
+  top_n_most_common_word_contractions <- tokenized_corpus %>%
+    filter(is_english != TRUE) %>%
+    mutate(end = str_match(ngrams, "'{1}\\D{1,5}$")) %>%
+    filter(!is.na(end)) %>%
+    group_by(end) %>%
+    count(end, sort = TRUE) %>%
+    ungroup() %>%
+    head(n) %>%
+    arrange(desc(n))
+  
+  # plot most common word contractions
+  plot <- top_n_most_common_word_contractions %>%
+    ggplot(aes(x = reorder(end, n), y = log10(n))) +
+    geom_col(show.legend = FALSE, fill = "#2196F3") +
+    labs(y = toupper(paste("Top ", n, " most common word contractions of\n", 
+                           corpus_name, " corpus on a log10 scale", sep = "")), 
+         x = NULL) +
+    coord_flip() +
+    theme_light()
+  
+  to_return <- list()
+  to_return$contractions <- top_n_most_common_word_contractions$end
+  to_return$plot <- plot
+  
+  # return plot and data
+  return(to_return)
+}
+
+plot_top_n_words_corresponding_to_contractions_supplied <-
+  function(tokenized_corpus, str_contractions, n = 10, corpus_name) {
+  
+  i <- 1
+  
+  contractions_outside_grady_augmented <- data_frame()
+  # add a dollar sign at the end for regex
+  for(str_contraction in  str_contractions) {
+    contraction <- paste(str_contraction, "$", sep = "")
+    
+    tokens_outside_grady_augmented <-
+      tokenized_corpus %>%
+      filter(is_english == FALSE) %>%
+      mutate(end = str_match(ngrams, contraction)) %>%
+      filter(!is.na(end)) %>%
+      count(ngrams, sort = TRUE) %>%
+      mutate(ngrams = factor(ngrams, levels = ngrams, ordered = FALSE)) %>%
+      head(n) %>%
+      mutate(contraction = 
+               toupper(paste(letters[i], ". ", str_contraction, sep = "")))
+
+    contractions_outside_grady_augmented <-
+      rbind(contractions_outside_grady_augmented,
+            tokens_outside_grady_augmented)
+    
+    i <- i + 1
+  }
+  
+  contractions_outside_grady_augmented %>%
+    ggplot(aes(reorder(ngrams, n), n, fill = contraction)) +
+    geom_col(show.legend = FALSE) +
+    labs(x = NULL, 
+         y = toupper(paste(corpus_name, ": Top ", n, 
+                           " Most Common Words Corresponding to \nTop ", n, 
+                           " Word Contractions", sep = ""))) +
+    facet_wrap(~contraction, ncol = 5, scales = "free") +
+    coord_flip()
+}
+
+# analyze remaining contractions
+analyze_remaining_contractions <- 
+  function(tokenized_corpus, n = 10, corpus_name) {
+  
+  remaining_contractions <- list()
+    
+  top_n_contractions <- 
+    get_top_n_most_common_word_contractions(
+      tokenized_corpus = tokenized_corpus, n = n, corpus_name = corpus_name)
+  
+  remaining_contractions$top_n_contractions <- top_n_contractions$contractions
+  remaining_contractions$top_n_contractions_plot <- top_n_contractions$plot
+  
+  # Plotting top n words corresponding to top n contractions
+  top_n_words_per_contraction_plot <-
+    plot_top_n_words_corresponding_to_contractions_supplied(
+      tokenized_corpus = tokenized_corpus, 
+      str_contractions = top_n_contractions$contractions, 
+      n = n, corpus_name = corpus_name)
+  
+  remaining_contractions$top_n_words_per_contraction_plot <-
+    top_n_words_per_contraction_plot
+  
+  return(remaining_contractions)
+}
+
+# FOR BLOG
+blog_remaining_contractions <- analyze_remaining_contractions(
+  tokenized_corpus = blog_tokenized_and_cleaned,
+  n = 10, corpus_name = "blog")
+# plot top 10 contractions
+blog_remaining_contractions$top_n_contractions_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/top_10_most_common_word_contractions_of_blog_corpus_on_a_log10_scale.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_3, echo=TRUE, eval=FALSE}
+# plot most common words per contraction
+blog_remaining_contractions$top_n_words_per_contraction_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/blog_top_10_most_common_words_corresponding_to_top_10_word_contractions.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_4, echo=TRUE, eval=FALSE}
+# FOR TWITTER
+twitter_remaining_contractions <-analyze_remaining_contractions(
+  tokenized_corpus = twitter_tokenized_and_cleaned, n = 10, 
+  corpus_name = "twitter")
+# plot top 10 contractions
+twitter_remaining_contractions$top_n_contractions_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/top_10_most_common_word_contractions_of_twitter_corpus_on_a_log10_scale.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_5, echo=TRUE, eval=FALSE}
+# plot most common words per contraction
+twitter_remaining_contractions$top_n_words_per_contraction_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/twitter_top_10_most_common_words_corresponding_to_top_10_word_contractions.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_6, echo=TRUE, eval=FALSE}
+# FOR NEWS
+news_remaining_contractions <-analyze_remaining_contractions(
+  tokenized_corpus = news_tokenized_and_cleaned, n = 10, 
+  corpus_name = "news")
+# plot top 10 contractions
+news_remaining_contractions$top_n_contractions_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/top_10_most_common_word_contractions_of_news_corpus_on_a_log10_scale.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_7, echo=TRUE, eval=FALSE}
+# plot most common words per contraction
+news_remaining_contractions$top_n_words_per_contraction_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/news_top_10_most_common_words_corresponding_to_top_10_word_contractions.png", dpi = 1)
+```
+
+As you can see on the plots above, <i>'s</i> contractions are the leading contractions over the every corpus. Looking at the 2nd plot per corpus, we can see that most of these words are on possessive forms like here's, god's, state's obama's, etc. Also, we can see that <i>'d</i> contractions have some useful tokens that are really contractions like it'd, there'd, that'd, etc.
+
+Looking at each of the corpus, we have interesting findings listed below:
+
+1. Y'all, c'mon, and y'know are contractions that have their own group in the blog dataset which are contractions used mostly for colloquial conversations.
+2. Offensive contractions like f'n, fuck'n, bitches'll are more apparent on the twitter dataset.
+3. 'brien, neal, 'neill, 'mara, 'leary and 'toole are contractions for most common surnames like O'brien, O'neal, O'neill, O'mara, O'leary and O'toole respectively which are understandable since these came from the news dataset and they are the names that were famous during the time of the data scraping (e.g. O'brien and the NBC late night show fiasco).
+
+Moving on, the following shows all the useful word contractions and their expanded forms extracted from these visualizations. The author then reiterated the same process to find some other contractions that the author might left out. Expand the following code to follow through that process:
+
+```{r appendix_1_investigating_other_contractions_part_8, echo=TRUE, eval=FALSE}
+# compiling unique word contractions
+custom_key_contractions_first_iteration <- function() {
+  # REPLACE WORD CONTRACTIONS
+  # Using custom_key_contractions
+  # more information below at Appendix 1.
+  
+  # blog (first iteration)
+  # s, 'd, 'all, 't, 'll, 'mon, 'brien, 'er, 'am
+  # for 's <- here's
+  # for 'd <- it'd, that'd, there'd
+  # for 'all <- y'all
+  # for 't <- needn't, gov't, n't
+  # for 'll <- ya'll, those'll, this'll, than'll
+  # for 'mon <- c'mon
+  # for 'an <- qur'an
+  
+  # twitter (first iteration)
+  # for 's <- here's
+  # for 'all <- y'all
+  # for 'd <- it'd, that'd, where'd, there'd
+  # for 'll <- ya'll, this'll
+  # for 'mon <- c'mon
+  # for 't <- gov't, con't
+  # for 'l <- nat'l, int'l, i'll, li'l, add'l
+  # for 'am <- ma'am
+  
+  # news (first iteration)
+  # for 's <- here's
+  # for 'd <- it'd, there'd, that'd, where'd
+  
+  # custom_key_contractions
+  custom_key_contractions <- key_contractions
+  custom_key_contractions <- 
+    rbind(custom_key_contractions, 
+          # contractions from first iteration (blog)
+          c(contraction = "here's", expanded = "here is"),
+          c(contraction = "it'd", expanded = "it would"),
+          c(contraction = "that'd", expanded = "that would"),
+          c(contraction = "there'd", expanded = "there would"),
+          c(contraction = "y'all", expanded = "you and all"),
+          c(contraction = "needn't", expanded = "need not"),
+          c(contraction = "gov't", expanded = "government"),
+          c(contraction = "n't", expanded = "not"),
+          c(contraction = "ya'll", expanded = "you and all"),
+          c(contraction = "those'll", expanded = "those will"),
+          c(contraction = "this'll", expanded = "this will"),
+          c(contraction = "than'll", expanded = "than will"),
+          c(contraction = "c'mon", expanded = "come on"),
+          c(contraction = "qur'an", expanded = "quran"),
+          # additional from twitter
+          c(contraction = "where'd", expanded = "where would"),
+          c(contraction = "con't", expanded = "continued"),
+          c(contraction = "nat'l", expanded = "national"),
+          c(contraction = "int'l", expanded = "international"),
+          c(contraction = "i'l", expanded = "i will"),
+          c(contraction = "li'l", expanded = "little"),
+          c(contraction = "add'l", expanded = "additional"),
+          c(contraction = "ma'am", expanded = "madam"))
+          
+  return(custom_key_contractions)
+}
+
+# Retokenize using custom key contractions (first iteration)
+retokenize_using_custom_key_contractions <- 
+  function(tokenized_corpus, custom_key_contractions) {
+  
+  # Expand contracted tokens using the default key_contractions dataset from
+  # lexicon package
+  one_gram_expanded <- 
+    expand_contracted_tokens(tokenized_corpus %>%
+                               mutate(is_english = NULL), 
+                             custom_key_contractions = custom_key_contractions)
+  
+  # update column that would initially determine if the word is english or not
+  one_gram_expanded <-
+    one_gram_expanded %>%
+    mutate(is_english = ngrams %in% grady_augmented)
+  
+  return(one_gram_expanded)
+}
+
+# Retokenize each corpus (first iteration)
+blog_retokenized_using_custom_key_contractions <-
+  retokenize_using_custom_key_contractions(
+    tokenized_corpus = blog_tokenized_and_cleaned, 
+    custom_key_contractions = custom_key_contractions_first_iteration())
+twitter_retokenized_using_custom_key_contractions <-
+  retokenize_using_custom_key_contractions(
+    tokenized_corpus = twitter_tokenized_and_cleaned, 
+    custom_key_contractions = custom_key_contractions_first_iteration())
+news_retokenized_using_custom_key_contractions <-
+  retokenize_using_custom_key_contractions(
+    tokenized_corpus = news_tokenized_and_cleaned, 
+    custom_key_contractions = custom_key_contractions_first_iteration())
+
+# Retokenize each corpus (first iteration)
+blog_retokenized_using_custom_key_contractions <-
+  retokenize_using_custom_key_contractions(
+    tokenized_corpus = blog_tokenized_and_cleaned, 
+    custom_key_contractions = custom_key_contractions_first_iteration())
+twitter_retokenized_using_custom_key_contractions <-
+  retokenize_using_custom_key_contractions(
+    tokenized_corpus = twitter_tokenized_and_cleaned, 
+    custom_key_contractions = custom_key_contractions_first_iteration())
+news_retokenized_using_custom_key_contractions <-
+  retokenize_using_custom_key_contractions(
+    tokenized_corpus = news_tokenized_and_cleaned, 
+    custom_key_contractions = custom_key_contractions_first_iteration())
+
+
+# Second Iteration
+# FOR BLOG
+blog_remaining_contractions_2nd <- analyze_remaining_contractions(
+  tokenized_corpus = blog_retokenized_using_custom_key_contractions,
+  n = 10, corpus_name = "blog")
+# plot top 10 contractions
+blog_remaining_contractions_2nd$top_n_contractions_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/top_10_most_common_word_contractions_of_blog_corpus_on_a_log10_scale_second_iteration.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_9, echo=TRUE, eval=FALSE}
+# plot most common words per contraction
+blog_remaining_contractions_2nd$top_n_words_per_contraction_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/blog_top_10_most_common_words_corresponding_to_top_10_word_contractions_second_iteration.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_10, echo=TRUE, eval=FALSE}
+# FOR TWITTER
+twitter_remaining_contractions_2nd <-analyze_remaining_contractions(
+  tokenized_corpus = twitter_retokenized_using_custom_key_contractions, 
+  n = 10, corpus_name = "twitter")
+# plot top 10 contractions
+twitter_remaining_contractions_2nd$top_n_contractions_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/top_10_most_common_word_contractions_of_twitter_corpus_on_a_log10_scale_second_iteration.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_11, echo=TRUE, eval=FALSE}
+# plot most common words per contraction
+twitter_remaining_contractions_2nd$top_n_words_per_contraction_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/twitter_top_10_most_common_words_corresponding_to_top_10_word_contractions_second_iteration.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_12, echo=TRUE, eval=FALSE}
+# FOR NEWS
+news_remaining_contractions_2nd <-analyze_remaining_contractions(
+  tokenized_corpus = news_retokenized_using_custom_key_contractions, 
+  n = 10, corpus_name = "news")
+# plot top 10 contractions
+news_remaining_contractions_2nd$top_n_contractions_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/top_10_most_common_word_contractions_of_news_corpus_on_a_log10_scale_second_iteration.png", dpi = 1)
+```
+
+```{r appendix_1_investigating_other_contractions_part_13, echo=TRUE, eval=FALSE}
+# plot most common words per contraction
+news_remaining_contractions_2nd$top_n_words_per_contraction_plot
+```
+
+```{r echo=FALSE, cache=FALSE, fig.height=5, fig.width=8}
+knitr::include_graphics(path = "./figures/news_top_10_most_common_words_corresponding_to_top_10_word_contractions_second_iteration.png", dpi = 1)
+```
+
+Now we see contractions that may not be useful in creating a formal prediction. Also, the author intentionally left out 's contractions since most of them are on the possessive form or contractions with structures <i>word</i> + <i>is</i> (e.g. today is). Getting all useful contraction-expansion pairs from the second iteration, the author decided to stop from here and finally updated key_contractions dataset to be used in data cleaning stage. To see the full list, expand the code chunk below:
+
+```{r appendix_1_investigating_other_contractions_part_14, echo=TRUE, eval=FALSE}
+# augment custom key contractions
+custom_key_contractions_second_iteration <- function() {
+  # REPLACE WORD CONTRACTIONS
+  # Using custom_key_contractions
+  
+  # for blog
+  # 'know <- y'know
+  # 've <- not've, that've, should've, may've
+  # 'er <- ne'er, e'er, whene'er
+  
+  # for twitter
+  # 'd <- cont'd
+  # 're <- how're, there're, where're, when're, why're, that're
+  # 've <- how've, there've, that've, may've, she've, all've
+  
+  # for news
+  # for 'i <- hawai'i
+  
+  # custom_key_contractions
+  custom_key_contractions <- key_contractions
+  custom_key_contractions <- 
+    rbind(custom_key_contractions, 
+          # FIRST ITERATION
+          # contractions from first iteration (blog)
+          c(contraction = "here's", expanded = "here is"),
+          c(contraction = "it'd", expanded = "it would"),
+          c(contraction = "that'd", expanded = "that would"),
+          c(contraction = "there'd", expanded = "there would"),
+          c(contraction = "y'all", expanded = "you and all"),
+          c(contraction = "needn't", expanded = "need not"),
+          c(contraction = "gov't", expanded = "government"),
+          c(contraction = "n't", expanded = "not"),
+          c(contraction = "ya'll", expanded = "you and all"),
+          c(contraction = "those'll", expanded = "those will"),
+          c(contraction = "this'll", expanded = "this will"),
+          c(contraction = "than'll", expanded = "than will"),
+          c(contraction = "c'mon", expanded = "come on"),
+          c(contraction = "qur'an", expanded = "quran"),
+          # additional from twitter
+          c(contraction = "where'd", expanded = "where would"),
+          c(contraction = "con't", expanded = "continued"),
+          c(contraction = "nat'l", expanded = "national"),
+          c(contraction = "int'l", expanded = "international"),
+          c(contraction = "i'l", expanded = "i will"),
+          c(contraction = "li'l", expanded = "little"),
+          c(contraction = "add'l", expanded = "additional"),
+          c(contraction = "ma'am", expanded = "madam"),
+          # SECOND ITERATION
+          # additional from blog
+          c(contraction = "y'know", expanded = "you know"),
+          c(contraction = "not've", expanded = "not have"),
+          c(contraction = "that've", expanded = "that have"),
+          c(contraction = "should've", expanded = "should have"),
+          c(contraction = "may've", expanded = "may have"),
+          c(contraction = "ne'er", expanded = "never"),
+          c(contraction = "e're", expanded = "ever"),
+          c(contraction = "whene'er", expanded = "whenever"),
+          # additional from twitter
+          c(contraction = "cont'd", expanded = "continued"),
+          c(contraction = "how're", expanded = "how are"),
+          c(contraction = "there're", expanded = "there are"),
+          c(contraction = "where're", expanded = "when are"),
+          c(contraction = "why're", expanded = "why are"),
+          c(contraction = "that're", expanded = "that are"),
+          c(contraction = "how've", expanded = "how have"),
+          c(contraction = "there've", expanded = "there have"),
+          c(contraction = "may've", expanded = "may have"),
+          c(contraction = "she've", expanded = "she have"),
+          c(contraction = "all've", expanded = "all have"),
+          # additional from news
+          c(contraction = "hawai'i", expanded = "hawaii"))
+  
+  return(custom_key_contractions)
+}
+```
+
+### Appendix 2. Session Information
+
+```{r session_info, include=TRUE, echo=TRUE, results='markup'}
+devtools::session_info()
+```
