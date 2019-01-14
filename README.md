@@ -3,10 +3,11 @@ Exploring the Sample English Corpora for Predictive Text Modeling
 Alexander N. Villasoto
 13 January 2019
 
-Note:
+Notes:
 -----
 
-You can access the full documentation via GitHub Pages [here](https://arseniusnott.github.io/Exploring-the-Sample-English-Corpora-for-Predictive-Text-Modeling/).
+* You can access the full documentation via GitHub Pages [here](https://arseniusnott.github.io/Exploring-the-Sample-English-Corpora-for-Predictive-Text-Modeling/). I suggest expanding the code listings all at once.
+* If you want to know more information about my analysis, you can email me [here](mailto:anvillasoto@gmail.com) or open an issue by visiting [this](https://github.com/ArseniusNott/Exploring-the-Sample-English-Corpora-for-Predictive-Text-Modeling/issues) link.
 
 Overview
 --------
@@ -65,3 +66,6 @@ Directory Structure
 
 
 </pre>
+
+Due to storage and environment constraints on GitHub, the author reproduced a cache version of the analysis without the generated files. <i>docs</i> directory includes cached data and figures needed by index.Rmd. If you want to reproduce the analysis, visit the URL above and expand the code listings.
+
